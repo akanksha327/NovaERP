@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -6,7 +6,8 @@ import {
   CheckCircle, 
   ChevronUp, 
   ChevronDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Keyboard
 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 
@@ -19,8 +20,14 @@ interface Invoice {
   status: 'Paid' | 'Pending' | 'Overdue';
 }
 
-interface SalesViewProps {
+interface Customer {
+  id: string;
+  name: string;
+}
+
+interface SalesVoucherProps {
   invoices: Invoice[];
+  customers: Customer[];
   onAddInvoice: (invoice: Omit<Invoice, 'id'>) => void;
   onDeleteInvoices: (ids: string[]) => void;
   onMarkAsPaid: (ids: string[]) => void;
@@ -28,8 +35,9 @@ interface SalesViewProps {
   setIsCreateModalOpen: (open: boolean) => void;
 }
 
-export const SalesView: React.FC<SalesViewProps> = ({
+export const SalesVoucher: React.FC<SalesVoucherProps> = ({
   invoices,
+  customers,
   onAddInvoice,
   onDeleteInvoices,
   onMarkAsPaid,
@@ -61,6 +69,34 @@ export const SalesView: React.FC<SalesViewProps> = ({
   // Validation state
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Keyboard navigation focus elements
+  const customerRef = useRef<HTMLSelectElement | null>(null);
+  const amountRef = useRef<HTMLInputElement | null>(null);
+  const dateRef = useRef<HTMLInputElement | null>(null);
+  const dueDateRef = useRef<HTMLInputElement | null>(null);
+  const statusRef = useRef<HTMLSelectElement | null>(null);
+
+  // Auto calculate due date to date + 30 days
+  useEffect(() => {
+    if (formDate) {
+      const d = new Date(formDate);
+      d.setDate(d.getDate() + 30);
+      setFormDueDate(d.toISOString().split('T')[0]);
+    }
+  }, [formDate]);
+
+  // Handle keydown for Enter to jump focus (Tally workflow)
+  const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | null, submit: boolean = false) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (submit) {
+        handleSubmitInvoice(e);
+      } else if (nextRef && nextRef.current) {
+        nextRef.current.focus();
+      }
+    }
+  };
+
   // Filter & Search & Sort logic
   const filteredSortedInvoices = useMemo(() => {
     let result = [...invoices];
@@ -89,7 +125,6 @@ export const SalesView: React.FC<SalesViewProps> = ({
           : (bVal as number) - (aVal as number);
       }
 
-      // Date or String comparison
       aVal = String(aVal).toLowerCase();
       bVal = String(bVal).toLowerCase();
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
@@ -132,13 +167,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
     );
   };
 
-  // Form submit handler with inline validation
   const handleSubmitInvoice = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
     if (!formCustomer.trim()) {
-      newErrors.customer = 'Customer name is required';
+      newErrors.customer = 'Please select a customer';
     }
     
     const amountVal = parseFloat(formAmount);
@@ -152,8 +186,6 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
     if (!formDueDate) {
       newErrors.dueDate = 'Due date is required';
-    } else if (new Date(formDueDate) < new Date(formDate)) {
-      newErrors.dueDate = 'Due date cannot be prior to issue date';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -172,8 +204,6 @@ export const SalesView: React.FC<SalesViewProps> = ({
     // Reset Form
     setFormCustomer('');
     setFormAmount('');
-    setFormDueDate('');
-    setFormStatus('Pending');
     setErrors({});
     setIsCreateModalOpen(false);
   };
@@ -185,16 +215,16 @@ export const SalesView: React.FC<SalesViewProps> = ({
       {/* View Header */}
       <div className="flex-row justify-between align-center" style={{ marginBottom: '24px' }}>
         <div>
-          <h1 className="text-2xl font-bold text-heading">Sales & Invoices</h1>
-          <p className="text-sm text-muted" style={{ marginTop: '4px' }}>Invoice management, tracking customer balances, and collecting receipts.</p>
+          <h1 className="text-2xl font-bold text-heading">Sales Vouchers</h1>
+          <p className="text-sm text-muted" style={{ marginTop: '4px' }}>Record sales transactions, audit ledger accounts, and print professional receipts.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
           <Plus size={16} />
-          <span>New Invoice</span>
+          <span>New Sales Voucher (F8)</span>
         </button>
       </div>
 
-      {/* Grid Controls (Filters, Search, Bulk Actions) */}
+      {/* Grid Controls */}
       <div className="card flex-column gap-2" style={{ marginBottom: '20px', padding: '16px' }}>
         <div className="flex-row justify-between align-center flex-wrap gap-2">
           
@@ -240,7 +270,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
               />
             </div>
 
-            {/* Bulk Actions Menu (conditional) */}
+            {/* Bulk Actions Menu */}
             {selectedIds.length > 0 && (
               <div className="flex-row gap-2 align-center" style={{ animation: 'fadeIn 150ms ease-out' }}>
                 <span className="text-xs text-muted font-medium">{selectedIds.length} selected</span>
@@ -273,7 +303,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         </div>
       </div>
 
-      {/* Main Invoices Table */}
+      {/* Vouchers Table */}
       <div className="table-container">
         <table className="table">
           <thead>
@@ -291,30 +321,30 @@ export const SalesView: React.FC<SalesViewProps> = ({
               </th>
               <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
                 <div className="table-header-cell-inner">
-                  <span>Invoice ID</span>
+                  <span>Voucher No.</span>
                   {sortField === 'id' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
               <th onClick={() => handleSort('customer')} style={{ cursor: 'pointer' }}>
                 <div className="table-header-cell-inner">
-                  <span>Customer</span>
+                  <span>Debit Party Account</span>
                   {sortField === 'customer' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
               <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
                 <div className="table-header-cell-inner">
-                  <span>Issue Date</span>
+                  <span>Voucher Date</span>
                   {sortField === 'date' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
               <th>Due Date</th>
               <th onClick={() => handleSort('amount')} style={{ cursor: 'pointer', textAlign: 'right' }}>
                 <div className="table-header-cell-inner" style={{ justifyContent: 'flex-end' }}>
-                  <span>Amount</span>
+                  <span>Amount ($)</span>
                   {sortField === 'amount' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
-              <th>Status</th>
+              <th>Ledger Status</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
@@ -322,7 +352,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
             {paginatedInvoices.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  No invoices found matching criteria.
+                  No Sales Vouchers registered.
                 </td>
               </tr>
             ) : (
@@ -346,7 +376,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                       </label>
                     </td>
                     <td className="font-semibold text-heading">{inv.id}</td>
-                    <td className="font-medium text-heading">{inv.customer}</td>
+                    <td className="font-semibold text-heading">{inv.customer}</td>
                     <td>{inv.date}</td>
                     <td>{inv.dueDate}</td>
                     <td style={{ textAlign: 'right', fontWeight: 600 }}>${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -383,7 +413,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       {totalPages > 1 && (
         <div className="flex-row justify-between align-center" style={{ marginTop: '20px' }}>
           <span className="text-xs text-muted">
-            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredSortedInvoices.length)} of {filteredSortedInvoices.length} invoices
+            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredSortedInvoices.length)} of {filteredSortedInvoices.length} vouchers
           </span>
           <div className="flex-row gap-1">
             <button 
@@ -424,90 +454,121 @@ export const SalesView: React.FC<SalesViewProps> = ({
         </div>
       )}
 
-      {/* Create Invoice Modal */}
+      {/* Tally Redesigned Sales Voucher Modal */}
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
           setErrors({});
         }}
-        title="Create Customer Invoice"
+        title="Sales Voucher Entry Screen"
         footer={
-          <>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => {
-                setIsCreateModalOpen(false);
-                setErrors({});
-              }}
-            >
-              Cancel
-            </button>
-            <button className="btn btn-primary" onClick={handleSubmitInvoice}>
-              Generate Invoice
-            </button>
-          </>
+          <div className="flex-row justify-between align-center" style={{ width: '100%' }}>
+            <span className="text-xs text-muted flex-row align-center gap-1">
+              <Keyboard size={14} />
+              Use [Enter] for fast field jump
+            </span>
+            <div className="flex-row gap-2">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  setErrors({});
+                }}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleSubmitInvoice}>
+                Post Voucher (Enter)
+              </button>
+            </div>
+          </div>
         }
       >
         <form onSubmit={handleSubmitInvoice} className="flex-column">
+          
+          <div className="flex-row align-center gap-1" style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', marginBottom: '20px' }}>
+            <Keyboard size={15} className="text-primary" />
+            <span className="text-xs font-semibold text-heading" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Voucher Type: Sales / Invoice Posting
+            </span>
+          </div>
+
           <div className="form-group">
-            <label className="form-label">Customer Name</label>
-            <input 
-              type="text" 
-              className={`form-input ${errors.customer ? 'is-invalid' : ''}`}
-              placeholder="e.g. Acme Corporation" 
+            <label className="form-label">Debit Account (Customer)</label>
+            <select 
+              className={`form-select ${errors.customer ? 'is-invalid' : ''}`}
               value={formCustomer}
+              ref={customerRef}
+              autoFocus
               onChange={(e) => setFormCustomer(e.target.value)}
-            />
+              onKeyDown={(e) => handleKeyDown(e, amountRef)}
+            >
+              <option value="">-- Choose Party Ledger Account --</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.name}>{c.name} ({c.id})</option>
+              ))}
+              {customers.length === 0 && (
+                <option value="Acme Corporation">Acme Corporation</option>
+              )}
+            </select>
             {errors.customer && <span className="form-feedback">{errors.customer}</span>}
           </div>
 
           <div className="form-group">
-            <label className="form-label">Invoice Amount ($)</label>
+            <label className="form-label">Invoice / Voucher Amount ($)</label>
             <input 
               type="number" 
               step="0.01"
+              ref={amountRef}
               className={`form-input ${errors.amount ? 'is-invalid' : ''}`}
               placeholder="0.00" 
               value={formAmount}
               onChange={(e) => setFormAmount(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, dateRef)}
             />
             {errors.amount && <span className="form-feedback">{errors.amount}</span>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div className="form-group">
-              <label className="form-label">Issue Date</label>
+              <label className="form-label">Voucher Date</label>
               <input 
                 type="date" 
+                ref={dateRef}
                 className={`form-input ${errors.date ? 'is-invalid' : ''}`}
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, dueDateRef)}
               />
               {errors.date && <span className="form-feedback">{errors.date}</span>}
             </div>
 
             <div className="form-group">
-              <label className="form-label">Due Date</label>
+              <label className="form-label">Calculated Due Date</label>
               <input 
                 type="date" 
+                ref={dueDateRef}
                 className={`form-input ${errors.dueDate ? 'is-invalid' : ''}`}
                 value={formDueDate}
                 onChange={(e) => setFormDueDate(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, statusRef)}
               />
               {errors.dueDate && <span className="form-feedback">{errors.dueDate}</span>}
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Initial Status</label>
+            <label className="form-label">Ledger Entry Status</label>
             <select 
               className="form-select"
+              ref={statusRef}
               value={formStatus}
               onChange={(e) => setFormStatus(e.target.value as 'Paid' | 'Pending')}
+              onKeyDown={(e) => handleKeyDown(e, null, true)}
             >
-              <option value="Pending">Pending Payment</option>
-              <option value="Paid">Mark as Paid Immediately</option>
+              <option value="Pending">Pending Collection (Unpaid)</option>
+              <option value="Paid">Direct Cash Receipt (Paid)</option>
             </select>
           </div>
         </form>

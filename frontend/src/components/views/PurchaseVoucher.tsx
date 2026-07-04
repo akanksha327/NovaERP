@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -6,7 +6,8 @@ import {
   PieChart, 
   ArrowUpDown, 
   ChevronUp, 
-  ChevronDown
+  ChevronDown,
+  Keyboard
 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 
@@ -19,16 +20,23 @@ interface Expense {
   description: string;
 }
 
-interface PurchasesViewProps {
+interface Supplier {
+  id: string;
+  name: string;
+}
+
+interface PurchaseVoucherProps {
   expenses: Expense[];
+  suppliers: Supplier[];
   onAddExpense: (expense: Omit<Expense, 'id'>) => void;
   onDeleteExpenses: (ids: string[]) => void;
   isCreateModalOpen: boolean;
   setIsCreateModalOpen: (open: boolean) => void;
 }
 
-export const PurchasesView: React.FC<PurchasesViewProps> = ({
+export const PurchaseVoucher: React.FC<PurchaseVoucherProps> = ({
   expenses,
+  suppliers,
   onAddExpense,
   onDeleteExpenses,
   isCreateModalOpen,
@@ -58,6 +66,25 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
   
   // Validation state
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Keyboard navigation focus elements
+  const supplierRef = useRef<HTMLSelectElement | null>(null);
+  const categoryRef = useRef<HTMLSelectElement | null>(null);
+  const amountRef = useRef<HTMLInputElement | null>(null);
+  const dateRef = useRef<HTMLInputElement | null>(null);
+  const descRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Handle keydown for Enter to jump focus (Tally workflow)
+  const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | null, submit: boolean = false) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (submit) {
+        handleSubmitExpense(e);
+      } else if (nextRef && nextRef.current) {
+        nextRef.current.focus();
+      }
+    }
+  };
 
   // Summary Metrics
   const summaryMetrics = useMemo(() => {
@@ -153,7 +180,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formSupplier.trim()) {
-      newErrors.supplier = 'Supplier name is required';
+      newErrors.supplier = 'Please select a supplier';
     }
 
     const amt = parseFloat(formAmount);
@@ -162,7 +189,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
     }
 
     if (!formDate) {
-      newErrors.date = 'Date is required';
+      newErrors.date = 'Voucher date is required';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -181,7 +208,6 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
     setFormSupplier('');
     setFormAmount('');
     setFormDesc('');
-    setFormDate(new Date().toISOString().split('T')[0]);
     setFormCategory('Software');
     setErrors({});
     setIsCreateModalOpen(false);
@@ -194,12 +220,12 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
       {/* View Header */}
       <div className="flex-row justify-between align-center" style={{ marginBottom: '24px' }}>
         <div>
-          <h1 className="text-2xl font-bold text-heading">Purchases & Expenses</h1>
-          <p className="text-sm text-muted" style={{ marginTop: '4px' }}>Log business vendor spending, track corporate purchases, and audit costs.</p>
+          <h1 className="text-2xl font-bold text-heading">Purchase Vouchers</h1>
+          <p className="text-sm text-muted" style={{ marginTop: '4px' }}>Record procurement spending, audit vendor credits, and monitor liabilities.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
           <Plus size={16} />
-          <span>Record Purchase</span>
+          <span>New Purchase Voucher (F9)</span>
         </button>
       </div>
 
@@ -208,20 +234,20 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         {/* Total Cost card */}
         <div className="card flex-column justify-between" style={{ padding: '24px' }}>
           <div>
-            <span className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Expenses Logged</span>
+            <span className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Purchase Valuation</span>
             <h2 className="text-2xl font-bold text-heading" style={{ marginTop: '8px', fontSize: '32px' }}>
               ${summaryMetrics.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </h2>
           </div>
           <div className="flex-row align-center gap-1 text-muted text-xs" style={{ marginTop: '16px' }}>
             <PieChart size={14} />
-            <span>Categorized across {expenses.length} vendor bills</span>
+            <span>Audited across {expenses.length} purchase vouchers</span>
           </div>
         </div>
 
         {/* Categories Progress list */}
         <div className="card flex-column" style={{ padding: '20px 24px' }}>
-          <h3 className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>Breakdown by Category</h3>
+          <h3 className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>Category Allocations</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
             {Object.entries(summaryMetrics.breakdown).map(([category, value]) => {
               const percentage = summaryMetrics.total > 0 ? (value / summaryMetrics.total) * 100 : 0;
@@ -231,7 +257,6 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                     <span className="text-heading">{category}</span>
                     <span className="text-muted">${value.toLocaleString()} ({Math.round(percentage)}%)</span>
                   </div>
-                  {/* Custom progress bar */}
                   <div style={{ height: '6px', width: '100%', backgroundColor: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${percentage}%`, backgroundColor: 'var(--color-primary)', borderRadius: '3px' }} />
                   </div>
@@ -247,10 +272,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         <div className="flex-row justify-between align-center flex-wrap gap-2">
           
           <div className="flex-row gap-2 align-center">
-            {/* Category Select Dropdown */}
-            <span className="text-xs text-muted font-medium flex-row align-center gap-1">
-              Filter Category:
-            </span>
+            <span className="text-xs text-muted font-medium">Category Ledger:</span>
             <select
               className="form-select"
               style={{ width: '140px', height: '36px', padding: '0 8px', fontSize: '13px' }}
@@ -274,7 +296,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
               <Search size={15} className="search-icon" />
               <input
                 type="text"
-                placeholder="Search vendor or description..."
+                placeholder="Search supplier or description..."
                 className="search-input"
                 value={search}
                 onChange={(e) => {
@@ -297,7 +319,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                   }}
                 >
                   <Trash2 size={14} />
-                  <span>Delete Purchase</span>
+                  <span>Delete Vouchers</span>
                 </button>
               </div>
             )}
@@ -324,27 +346,27 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
               </th>
               <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
                 <div className="table-header-cell-inner">
-                  <span>Bill ID</span>
+                  <span>Voucher No.</span>
                   {sortField === 'id' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
               <th onClick={() => handleSort('supplier')} style={{ cursor: 'pointer' }}>
                 <div className="table-header-cell-inner">
-                  <span>Vendor / Supplier</span>
+                  <span>Credit Party Account</span>
                   {sortField === 'supplier' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
               <th>Category</th>
               <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
                 <div className="table-header-cell-inner">
-                  <span>Purchase Date</span>
+                  <span>Voucher Date</span>
                   {sortField === 'date' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
               <th style={{ maxWidth: '240px' }}>Memo / Description</th>
               <th onClick={() => handleSort('amount')} style={{ cursor: 'pointer', textAlign: 'right' }}>
                 <div className="table-header-cell-inner" style={{ justifyContent: 'flex-end' }}>
-                  <span>Amount</span>
+                  <span>Amount ($)</span>
                   {sortField === 'amount' ? (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ArrowUpDown size={12} className="text-disabled" />}
                 </div>
               </th>
@@ -355,7 +377,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
             {paginatedExpenses.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  No vendor purchases recorded matching criteria.
+                  No Purchase Vouchers registered.
                 </td>
               </tr>
             ) : (
@@ -375,7 +397,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                       </label>
                     </td>
                     <td className="font-semibold text-heading">{exp.id}</td>
-                    <td className="font-medium text-heading">{exp.supplier}</td>
+                    <td className="font-semibold text-heading">{exp.supplier}</td>
                     <td>
                       <span className="badge badge-info" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-heading)' }}>
                         {exp.category}
@@ -409,7 +431,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
       {totalPages > 1 && (
         <div className="flex-row justify-between align-center" style={{ marginTop: '20px' }}>
           <span className="text-xs text-muted">
-            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredSortedExpenses.length)} of {filteredSortedExpenses.length} entries
+            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredSortedExpenses.length)} of {filteredSortedExpenses.length} vouchers
           </span>
           <div className="flex-row gap-1">
             <button 
@@ -450,51 +472,76 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         </div>
       )}
 
-      {/* Create Purchase Modal */}
+      {/* Tally Redesigned Purchase Voucher Modal */}
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
           setErrors({});
         }}
-        title="Record Vendor Bill / Expense"
+        title="Purchase Voucher Entry Screen"
         footer={
-          <>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => {
-                setIsCreateModalOpen(false);
-                setErrors({});
-              }}
-            >
-              Cancel
-            </button>
-            <button className="btn btn-primary" onClick={handleSubmitExpense}>
-              Save Purchase
-            </button>
-          </>
+          <div className="flex-row justify-between align-center" style={{ width: '100%' }}>
+            <span className="text-xs text-muted flex-row align-center gap-1">
+              <Keyboard size={14} />
+              Use [Enter] for fast field jump
+            </span>
+            <div className="flex-row gap-2">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  setErrors({});
+                }}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleSubmitExpense}>
+                Post Voucher (Enter)
+              </button>
+            </div>
+          </div>
         }
       >
         <form onSubmit={handleSubmitExpense} className="flex-column">
+          
+          <div className="flex-row align-center gap-1" style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', marginBottom: '20px' }}>
+            <Keyboard size={15} className="text-primary" />
+            <span className="text-xs font-semibold text-heading" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Voucher Type: Purchase / Bill Posting
+            </span>
+          </div>
+
           <div className="form-group">
-            <label className="form-label">Vendor / Supplier</label>
-            <input 
-              type="text" 
-              className={`form-input ${errors.supplier ? 'is-invalid' : ''}`}
-              placeholder="e.g. AWS Cloud Services" 
+            <label className="form-label">Credit Account (Supplier)</label>
+            <select 
+              className={`form-select ${errors.supplier ? 'is-invalid' : ''}`}
+              ref={supplierRef}
+              autoFocus
               value={formSupplier}
               onChange={(e) => setFormSupplier(e.target.value)}
-            />
+              onKeyDown={(e) => handleKeyDown(e, categoryRef)}
+            >
+              <option value="">-- Choose Party Ledger Account --</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.name}>{s.name} ({s.id})</option>
+              ))}
+              {suppliers.length === 0 && (
+                <option value="Amazon Web Services">Amazon Web Services</option>
+              )}
+            </select>
             {errors.supplier && <span className="form-feedback">{errors.supplier}</span>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div className="form-group">
-              <label className="form-label">Category</label>
+              <label className="form-label">Debit Ledger (Category)</label>
               <select 
                 className="form-select"
+                ref={categoryRef}
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.target.value as any)}
+                onKeyDown={(e) => handleKeyDown(e, amountRef)}
               >
                 <option value="Software">Software</option>
                 <option value="Office">Office Equipment</option>
@@ -505,37 +552,48 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Expense Amount ($)</label>
+              <label className="form-label">Voucher Amount ($)</label>
               <input 
                 type="number" 
                 step="0.01"
+                ref={amountRef}
                 className={`form-input ${errors.amount ? 'is-invalid' : ''}`}
                 placeholder="0.00" 
                 value={formAmount}
                 onChange={(e) => setFormAmount(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, dateRef)}
               />
               {errors.amount && <span className="form-feedback">{errors.amount}</span>}
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Transaction Date</label>
+            <label className="form-label">Voucher Date</label>
             <input 
               type="date" 
+              ref={dateRef}
               className={`form-input ${errors.date ? 'is-invalid' : ''}`}
               value={formDate}
               onChange={(e) => setFormDate(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, descRef)}
             />
             {errors.date && <span className="form-feedback">{errors.date}</span>}
           </div>
 
           <div className="form-group">
-            <label className="form-label">Description / Memo</label>
+            <label className="form-label">Narration / Memo</label>
             <textarea
               className="form-textarea"
-              placeholder="Provide a quick note of the items purchased..."
+              ref={descRef}
+              placeholder="Record transaction details..."
               value={formDesc}
               onChange={(e) => setFormDesc(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmitExpense(e);
+                }
+              }}
             />
           </div>
         </form>

@@ -1,9 +1,12 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
-  FileText, 
-  Receipt, 
+  Users, 
+  Truck, 
   Package, 
+  FileMinus, 
+  FilePlus, 
+  BarChart3, 
   Settings, 
   ChevronLeft, 
   ChevronRight,
@@ -25,10 +28,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
-    { id: 'invoices', name: 'Sales & Invoices', icon: FileText },
-    { id: 'expenses', name: 'Purchases & Bills', icon: Receipt },
-    { id: 'inventory', name: 'Inventory Catalog', icon: Package },
-    { id: 'settings', name: 'System Settings', icon: Settings },
+    { id: 'customers', name: 'Customers', icon: Users },
+    { id: 'suppliers', name: 'Suppliers', icon: Truck },
+    { id: 'inventory', name: 'Stock Items', icon: Package },
+    { id: 'purchase_voucher', name: 'Purchase Voucher', icon: FileMinus },
+    { id: 'sales_voucher', name: 'Sales Voucher', icon: FilePlus },
+    { id: 'reports', name: 'Reports', icon: BarChart3 },
+    { id: 'settings', name: 'Settings', icon: Settings },
   ];
 
   return (

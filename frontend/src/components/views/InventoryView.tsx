@@ -192,12 +192,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       {/* View Header */}
       <div className="flex-row justify-between align-center" style={{ marginBottom: '24px' }}>
         <div>
-          <h1 className="text-2xl font-bold text-heading">Inventory Catalog</h1>
+          <h1 className="text-2xl font-bold text-heading">Stock Items</h1>
           <p className="text-sm text-muted" style={{ marginTop: '4px' }}>Monitor asset stock levels, unit value tracking, reorder alert limits, and bulk auditing.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
           <Plus size={16} />
-          <span>New Catalog Item</span>
+          <span>New Stock Item</span>
         </button>
       </div>
 
@@ -410,7 +410,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       {totalPages > 1 && (
         <div className="flex-row justify-between align-center" style={{ marginTop: '20px' }}>
           <span className="text-xs text-muted">
-            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredSortedInventory.length)} of {filteredSortedInventory.length} catalog items
+            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredSortedInventory.length)} of {filteredSortedInventory.length} stock items
           </span>
           <div className="flex-row gap-1">
             <button 
@@ -458,7 +458,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           setIsCreateModalOpen(false);
           setErrors({});
         }}
-        title="Add Catalog Stock Item"
+        title="Add Stock Item"
         footer={
           <>
             <button 
