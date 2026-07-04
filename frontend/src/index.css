@@ -107,6 +107,7 @@
 
 body {
   font-family: var(--font-family);
+  font-weight: 500;
   background-color: var(--bg-primary);
   color: var(--text-body);
   -webkit-font-smoothing: antialiased;
@@ -117,9 +118,10 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-heading);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
+
 
 a {
   color: var(--color-primary);

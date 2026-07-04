@@ -195,7 +195,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Outstanding Card */}
         <div className="card">
           <div className="flex-row justify-between align-center text-muted" style={{ marginBottom: '12px' }}>
-            <span className="text-xs font-semibold" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outstanding</span>
+            <span className="text-xs font-semibold" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outstanding Payments</span>
             <FileText size={18} className="text-muted" />
           </div>
           <div className="flex-column">
